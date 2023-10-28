@@ -68,7 +68,10 @@ order by f.user_id, date_created desc; """
             self.connection = pika.BlockingConnection(pika.ConnectionParameters('localhost'))
         else:
             credentials = pika.PlainCredentials('rabbit_user', '1234')
-            self.connection = pika.BlockingConnection(pika.ConnectionParameters('ed-virtualbox', 5672,'/', credentials ))
+            dev_queue_server = 'ed-virtualbox'
+            prd_queue_server = 'braincoins.org'
+            queue_server = dev_queue_server if environment == 'dev' else prd_queue_server
+            self.connection = pika.BlockingConnection(pika.ConnectionParameters(queue_server, 5672, '/', credentials ))
 
         self.channel = self.connection.channel()
 
@@ -103,7 +106,7 @@ order by f.user_id, date_created desc; """
         print(f"Received: {str_body}")
         json_body = json.loads(str_body)
         print(json_body)
-        voice= 'geralt'
+        #voice= 'geralt'
         text = json_body['text']
         files = json_body['files']
         voice = 'user_' + str(json_body['user_id'])
@@ -127,7 +130,7 @@ order by f.user_id, date_created desc; """
             with open(os.path.join(path, file['file_name']), 'wb') as handler:
                 handler.write(content)
 
-        output_file_name = 'combined.wav'
+        output_file_name = json_body['output_file_name'].split('.')[0] + '.wav'
         output_files = tortoise_handler(voice, text, output_file_name)
         print(output_files)
         #output_files = [
@@ -140,11 +143,12 @@ order by f.user_id, date_created desc; """
                 response = {
                         'action': 'saveUserFile'
                         ,'auth_token': json_body['auth_token']
-                        ,'file_name': file_name
+                        ,'file_name': output_file_name
                         ,'file_content': base64.b64encode(data).decode('utf-8')
                         ,'file_type': 'audio/wav'
 
                         ,'user_id': json_body['user_id']
+                        ,'event_id': json_body['event_id']
                         ,'text': text
 
                         }
