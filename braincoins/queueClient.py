@@ -51,7 +51,7 @@ order by f.user_id, date_created desc; """
                         ,'files': []
                         ,'text': 'congratulations Jimmy, you did great there champ!'
                         ,'callback_url': 'http://ed-virtualbox/api_endpoint.php'
-                        ,'auth_token': '402'
+                        ,'auth_token': x['user_id']
                         }
             tasks[x['user_id']]['files'].append({
                 'file_url': 'http://ed-virtualbox/certifications_list.php?file=' + str(x['file_id']) + '&temp_pwd=' + str(x['user_id'])
@@ -70,6 +70,7 @@ order by f.user_id, date_created desc; """
             credentials = pika.PlainCredentials('rabbit_user', '1234')
             dev_queue_server = 'ed-virtualbox'
             prd_queue_server = 'braincoins.org'
+            prd_queue_server = '35.89.145.13'
             queue_server = dev_queue_server if environment == 'dev' else prd_queue_server
             self.connection = pika.BlockingConnection(pika.ConnectionParameters(queue_server, 5672, '/', credentials ))
 
@@ -101,64 +102,68 @@ order by f.user_id, date_created desc; """
             self.connection.close()
 
     def callback(self, ch, method, properties, body):
-        str_body = body.decode('utf-8')
-        print(f"Received: {body}")
-        print(f"Received: {str_body}")
-        json_body = json.loads(str_body)
-        print(json_body)
-        #voice= 'geralt'
-        text = json_body['text']
-        files = json_body['files']
-        voice = 'user_' + str(json_body['user_id'])
-        for file in files:
-            path = os.path.join(r'tortoise\voices', voice)
-            if not os.path.exists(path):
-                os.makedirs(path)
+        try:
+            str_body = body.decode('utf-8')
+            print(f"Received: {body}")
+            print(f"Received: {str_body}")
+            json_body = json.loads(str_body)
+            print(json_body)
+            #voice= 'geralt'
+            text = json_body['text']
+            files = json_body['files']
+            voice = 'user_' + str(json_body['user_id'])
+            for file in files:
+                path = os.path.join(r'tortoise\voices', voice)
+                if not os.path.exists(path):
+                    os.makedirs(path)
 
-            if os.path.exists(os.path.join(path, file['file_name'])):
-                with open(os.path.join(path, file['file_name']), 'rb') as handler:
-                    md5 = hashlib.md5(handler.read()).hexdigest()
-                    print(f"Existing file md5: {md5}")
-                    if md5 == file['file_hash']:
-                        print("File already exists")
-                        continue
+                if os.path.exists(os.path.join(path, file['file_name'])):
+                    with open(os.path.join(path, file['file_name']), 'rb') as handler:
+                        md5 = hashlib.md5(handler.read()).hexdigest()
+                        print(f"Existing file md5: {md5}")
+                        if md5 == file['file_hash']:
+                            print("File already exists")
+                            continue
 
-            file_url = file['file_url']
-            print(f"dowloading file: {file_url}")
-            content = requests.get(file_url).content
+                file_url = file['file_url']
+                print(f"dowloading file: {file_url}")
+                content = requests.get(file_url).content
 
-            with open(os.path.join(path, file['file_name']), 'wb') as handler:
-                handler.write(content)
+                with open(os.path.join(path, file['file_name']), 'wb') as handler:
+                    handler.write(content)
 
-        output_file_name = json_body['output_file_name'].split('.')[0] + '.wav'
-        output_files = tortoise_handler(voice, text, output_file_name)
-        print(output_files)
-        #output_files = [
-        #        r'results\longform\user_402\combined.wav.wav'
-        #        ]
-        for out_file in output_files:
-            with open(out_file, 'rb') as f:
-                data = f.read()
-                file_name = os.path.basename(out_file)
-                response = {
-                        'action': 'saveUserFile'
-                        ,'auth_token': json_body['auth_token']
-                        ,'file_name': output_file_name
-                        ,'file_content': base64.b64encode(data).decode('utf-8')
-                        ,'file_type': 'audio/wav'
+            output_file_name = json_body['output_file_name'].split('.')[0] + '.wav'
+            output_files = tortoise_handler(voice, text, output_file_name)
+            print(output_files)
+            #output_files = [
+            #        r'results\longform\user_402\combined.wav.wav'
+            #        ]
+            for out_file in output_files:
+                with open(out_file, 'rb') as f:
+                    data = f.read()
+                    file_name = os.path.basename(out_file)
+                    response = {
+                            'action': 'saveUserFile'
+                            ,'auth_token': json_body['auth_token']
+                            ,'file_name': output_file_name
+                            ,'file_content': base64.b64encode(data).decode('utf-8')
+                            ,'file_type': 'audio/wav'
 
-                        ,'user_id': json_body['user_id']
-                        ,'event_id': json_body['event_id']
-                        ,'text': text
+                            ,'user_id': json_body['user_id']
+                            ,'event_id': json_body['event_id']
+                            ,'text': text
 
-                        }
-                #send over an ajax request
-                result = requests.post(json_body['callback_url'], json=response)
-                print(result)
-                json_result = result.json()
-                json_result['request']['POST']['file_content'] = '...'
-                print(json.dumps(json_result, indent=4)[0:5002])
-                #print(result.text)
+                            }
+                    #send over an ajax request
+                    result = requests.post(json_body['callback_url'], json=response)
+                    print(result)
+                    json_result = result.json()
+                    json_result['request']['POST']['file_content'] = '...'
+                    print(json.dumps(json_result, indent=4)[0:5002])
+                    #print(result.text)
+        except Exception as e:
+            print('Error in processing message')
+            print(e)
 
 
 
@@ -174,7 +179,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
     print(args)
 
-    client = queueClient()
+    client = queueClient('prd')
     client.createQueue('textToSpeech')
     if args.listen:
         client.waitForMessages('textToSpeech')
