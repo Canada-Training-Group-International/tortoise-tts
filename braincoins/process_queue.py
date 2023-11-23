@@ -1,5 +1,6 @@
 import argparse
 import os
+import sys
 from time import time
 
 import torch
@@ -16,8 +17,9 @@ def tortoise_handler(voice, text, file_name):
     'voice': voice,
     'output_path': 'results/longform/',
     'output_name': file_name,
-    'preset': 'fast',
+    #'preset': 'fast',
     #'preset': 'standard',
+    'preset': 'high_quality',
     'regenerate': None,
     'model_dir': MODELS_DIR,
     'seed': None,
@@ -98,4 +100,36 @@ def tortoise_handler(voice, text, file_name):
         torchaudio.save(file_out_path, full_audio, 24000)
         output_files.append(file_out_path)
     return output_files
+
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='Queue Client.')
+    #parser.add_argument('message', nargs='?', default=None)
+    #parser.add_argument('command', nargs='?', choices=['listen', 'send'], default='send',
+    #                    help='Command: "listen" or "send" (default is "send")')
+    #parser.add_argument('--listen', default=None, help='')
+    parser.add_argument('-l', '--listen', action='store_true', help='Listen for messages')
+    parser.add_argument('-p', '--process', action='store_true', help='Process pending tasks')
+
+    parser.add_argument('-v', '--voice', help='voice to use')
+    parser.add_argument('-o', '--output', help='file to output to')
+    parser.add_argument('-t', '--text', help='text to convert to speech')
+    
+    args = parser.parse_args()
+    print(args)
+
+    if args.voice is None or args.output is None or args.text is None or args.voice == '' or args.output == '' or args.text == '':
+        print('Missing arguments')
+        sys.exit(1)
+
+    output_file_name = args.output.split('.')[0] + '.wav'
+    output_file_name = args.output+'.wav'
+    output_files = tortoise_handler(args.voice, args.text, output_file_name)
+    print(output_files)
+    os.system("start " + output_files[0])
+    #C:/thepathyouwant/file")
+
+
+
 

@@ -7,6 +7,7 @@ import requests
 import os
 import base64
 import hashlib
+from pprint import pprint
 
 class queueClient:
 
@@ -107,7 +108,7 @@ order by f.user_id, date_created desc; """
             print(f"Received: {body}")
             print(f"Received: {str_body}")
             json_body = json.loads(str_body)
-            print(json_body)
+            pprint(json_body)
             #voice= 'geralt'
             text = json_body['text']
             files = json_body['files']
@@ -117,6 +118,7 @@ order by f.user_id, date_created desc; """
                 if not os.path.exists(path):
                     os.makedirs(path)
 
+                #set_trace()
                 if os.path.exists(os.path.join(path, file['file_name'])):
                     with open(os.path.join(path, file['file_name']), 'rb') as handler:
                         md5 = hashlib.md5(handler.read()).hexdigest()
@@ -133,21 +135,28 @@ order by f.user_id, date_created desc; """
                     handler.write(content)
 
             output_file_name = json_body['output_file_name'].split('.')[0] + '.wav'
-            output_files = tortoise_handler(voice, text, output_file_name)
+            is_test = False
+            #is_test = True
+            if is_test:
+                output_files = [
+                    r'results\longform\user_411\custom_voice_sample.wav'
+                    ]
+            else:
+                output_files = tortoise_handler(voice, text, output_file_name)
             print(output_files)
-            #output_files = [
-            #        r'results\longform\user_402\combined.wav.wav'
-            #        ]
+            #set_trace()
             for out_file in output_files:
                 with open(out_file, 'rb') as f:
                     data = f.read()
                     file_name = os.path.basename(out_file)
+                    #set_trace()
                     response = {
                             'action': 'saveUserFile'
                             ,'auth_token': json_body['auth_token']
                             ,'file_name': output_file_name
                             ,'file_content': base64.b64encode(data).decode('utf-8')
                             ,'file_type': 'audio/wav'
+                            ,'file_group': 'event'
 
                             ,'user_id': json_body['user_id']
                             ,'event_id': json_body['event_id']
@@ -168,6 +177,9 @@ order by f.user_id, date_created desc; """
 
 
 if __name__ == '__main__':
+    from IPython.core.debugger import set_trace
+    #set_trace()
+
     parser = argparse.ArgumentParser(description='Queue Client.')
     parser.add_argument('message', nargs='?', default=None)
     #parser.add_argument('command', nargs='?', choices=['listen', 'send'], default='send',
@@ -179,19 +191,22 @@ if __name__ == '__main__':
     args = parser.parse_args()
     print(args)
 
-    client = queueClient('prd')
-    client.createQueue('textToSpeech')
+    env = 'dev'
+    #env = 'prd'
+    client = queueClient(env)
+    queueName = 'customTextToSpeach'
+    client.createQueue(queueName)
     if args.listen:
-        client.waitForMessages('textToSpeech')
+        client.waitForMessages('')
     elif args.process:
         tasks = client.retrieve_pending_tasks()
         #print(tasks)
         for task in tasks:
             json_task = json.dumps(tasks[task])
             print(json_task)
-            client.sendMessage('textToSpeech', json_task)
+            client.sendMessage(queueName, json_task)
     elif args.message:
-        client.sendMessage('textToSpeech', args.message)
+        client.sendMessage(queueName, args.message)
 
 
 
