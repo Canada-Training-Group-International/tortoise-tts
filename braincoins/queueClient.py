@@ -70,10 +70,12 @@ order by f.user_id, date_created desc; """
         else:
             credentials = pika.PlainCredentials('rabbit_user', '1234')
             dev_queue_server = 'ed-virtualbox'
-            prd_queue_server = 'braincoins.org'
-            prd_queue_server = '35.89.145.13'
+            dev_queue_port = 5672
+            prd_queue_server = 'localhost'
+            prd_queue_port = 5673
             queue_server = dev_queue_server if environment == 'dev' else prd_queue_server
-            self.connection = pika.BlockingConnection(pika.ConnectionParameters(queue_server, 5672, '/', credentials ))
+            queue_port = dev_queue_port if environment == 'dev' else prd_queue_port
+            self.connection = pika.BlockingConnection(pika.ConnectionParameters(queue_server, queue_port, '/', credentials ))
 
         self.channel = self.connection.channel()
 
@@ -192,7 +194,7 @@ if __name__ == '__main__':
     print(args)
 
     env = 'dev'
-    #env = 'prd'
+    env = 'prd'
     client = queueClient(env)
     queueName = 'customTextToSpeach'
     client.createQueue(queueName)
