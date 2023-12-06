@@ -69,7 +69,7 @@ order by f.user_id, date_created desc; """
             self.connection = pika.BlockingConnection(pika.ConnectionParameters('localhost'))
         else:
             credentials = pika.PlainCredentials('rabbit_user', '1234')
-            dev_queue_server = 'ed-virtualbox'
+            dev_queue_server = 'localhost'
             dev_queue_port = 5672
             prd_queue_server = 'localhost'
             prd_queue_port = 5673
@@ -105,6 +105,7 @@ order by f.user_id, date_created desc; """
             self.connection.close()
 
     def callback(self, ch, method, properties, body):
+        json_body = None
         try:
             str_body = body.decode('utf-8')
             print(f"Received: {body}")
@@ -115,11 +116,12 @@ order by f.user_id, date_created desc; """
             text = json_body['text']
             files = json_body['files']
             voice = 'user_' + str(json_body['user_id'])
-            for file in files:
-                path = os.path.join(r'tortoise\voices', voice)
-                if not os.path.exists(path):
-                    os.makedirs(path)
 
+            path = os.path.join(r'tortoise\voices', voice)
+            if not os.path.exists(path):
+                os.makedirs(path)
+
+            for file in files:
                 #set_trace()
                 if os.path.exists(os.path.join(path, file['file_name'])):
                     with open(os.path.join(path, file['file_name']), 'rb') as handler:
@@ -136,6 +138,12 @@ order by f.user_id, date_created desc; """
                 with open(os.path.join(path, file['file_name']), 'wb') as handler:
                     handler.write(content)
 
+            #get existing files in path and remove the ones that don't exist in the files array
+            existing_files = os.listdir(path)
+            for file in existing_files:
+                if file not in [f['file_name'] for f in files]:
+                    os.remove(os.path.join(path, file))
+
             output_file_name = json_body['output_file_name'].split('.')[0] + '.wav'
             is_test = False
             #is_test = True
@@ -143,6 +151,8 @@ order by f.user_id, date_created desc; """
                 output_files = [
                     r'results\longform\user_411\custom_voice_sample.wav'
                     ]
+            elif text is None or text.strip()=='':
+                raise Exception("Text is empty")
             else:
                 output_files = tortoise_handler(voice, text, output_file_name)
             print(output_files)
@@ -153,7 +163,8 @@ order by f.user_id, date_created desc; """
                     file_name = os.path.basename(out_file)
                     #set_trace()
                     response = {
-                            'action': 'saveUserFile'
+                            'status': 'success'
+                            ,'action': 'saveUserFile'
                             ,'auth_token': json_body['auth_token']
                             ,'file_name': output_file_name
                             ,'file_content': base64.b64encode(data).decode('utf-8')
@@ -165,16 +176,26 @@ order by f.user_id, date_created desc; """
                             ,'text': text
 
                             }
-                    #send over an ajax request
-                    result = requests.post(json_body['callback_url'], json=response)
-                    print(result)
-                    json_result = result.json()
-                    json_result['request']['POST']['file_content'] = '...'
-                    print(json.dumps(json_result, indent=4)[0:5002])
-                    #print(result.text)
+
+                    if 'queueResponse' in json_body:
+                        pass
+                    elif 'callback_url' in json_body:
+                        #send over an ajax request
+                        result = requests.post(json_body['callback_url'], json=response)
+                        print(result)
+                        json_result = result.json()
+                        json_result['request']['POST']['file_content'] = '...'
+                        print(json.dumps(json_result, indent=4)[0:5002])
+                        #print(result.text)
         except Exception as e:
             print('Error in processing message')
             print(e)
+            response = {'error': str(e)}
+        finally:
+            if 'queueResponse' in json_body:
+                #send over a queue
+                responseQueue = json_body['queueResponse']
+                self.sendMessage(responseQueue, json.dumps(response))
 
 
 
