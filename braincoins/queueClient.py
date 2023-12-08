@@ -62,7 +62,7 @@ order by f.user_id, date_created desc; """
                 })
         return tasks
 
-    def __init__(self, environment='dev'):
+    def __init__(self, environment):
         # Establish a connection to the RabbitMQ server
         local = False
         if local:
@@ -76,6 +76,7 @@ order by f.user_id, date_created desc; """
             queue_server = dev_queue_server if environment == 'dev' else prd_queue_server
             queue_port = dev_queue_port if environment == 'dev' else prd_queue_port
             self.connection = pika.BlockingConnection(pika.ConnectionParameters(queue_server, queue_port, '/', credentials ))
+            print('Connected to RabbitMQ server: ' + queue_server + ':' + str(queue_port))
 
         self.channel = self.connection.channel()
 
@@ -95,6 +96,7 @@ order by f.user_id, date_created desc; """
         self.channel.basic_publish(exchange='', routing_key=queueName, body=message)
 
     def waitForMessages(self, queueName):
+        print(' [*] Waiting for messages. To exit press CTRL+C')
         self.channel.basic_consume(queue=queueName, on_message_callback=self.callback, auto_ack=True)
         self.channel.start_consuming()
         print('Waiting for messages. To exit, press CTRL+C')
@@ -155,6 +157,7 @@ order by f.user_id, date_created desc; """
                 raise Exception("Text is empty")
             else:
                 output_files = tortoise_handler(voice, text, output_file_name)
+                #output_files = ['results/longform/' + voice + '/' + output_file_name]
             print(output_files)
             #set_trace()
             for out_file in output_files:
