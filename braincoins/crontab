@@ -1,0 +1,2 @@
+*/5 * * * * /home/ec2-user/tortoise-tts/braincoins/autoStop.sh >> /home/ec2-user/logfile.log 2>&1
+@reboot /home/ec2-user/tortoise-tts/braincoins/run.sh >> /home/ec2-user/logfile.log 2>&1
