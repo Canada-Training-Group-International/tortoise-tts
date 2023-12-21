@@ -104,8 +104,8 @@ order by f.user_id, date_created desc; """
     def waitForMessages(self, queueName):
         #wait for N minutes if no messages received terminate the program, so the server is shutdown
         def watchdog_thread(self):
-            timeout = 300 #5 minutes in seconds
-            timeout = 60 #5 minutes in seconds
+            timeout = 600 #10 minutes in seconds
+            #timeout = 60 #5 minutes in seconds
             while True:
                 if time.time() - self.current_time >= timeout:
                     print('No messages received in the last '+str(timeout)+' secs')
