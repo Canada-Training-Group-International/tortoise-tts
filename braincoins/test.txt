@@ -1,0 +1,2 @@
+python -m braincoins.process_queue -t 'this is a test' -v daniel -o 'teest1.mp3'
+python -m braincoins.queueClient -p

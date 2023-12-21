@@ -8,6 +8,10 @@ import os
 import base64
 import hashlib
 from pprint import pprint
+import time
+import threading
+import os
+import sys
 
 class queueClient:
 
@@ -73,6 +77,8 @@ order by f.user_id, date_created desc; """
             dev_queue_port = 5672
             prd_queue_server = 'localhost'
             prd_queue_port = 5673
+            prd_queue_server = '172.26.7.163'
+            prd_queue_port = 5672
             queue_server = dev_queue_server if environment == 'dev' else prd_queue_server
             queue_port = dev_queue_port if environment == 'dev' else prd_queue_port
             self.connection = pika.BlockingConnection(pika.ConnectionParameters(queue_server, queue_port, '/', credentials ))
@@ -96,6 +102,20 @@ order by f.user_id, date_created desc; """
         self.channel.basic_publish(exchange='', routing_key=queueName, body=message)
 
     def waitForMessages(self, queueName):
+        #wait for N minutes if no messages received terminate the program, so the server is shutdown
+        def watchdog_thread(self):
+            timeout = 300 #5 minutes in seconds
+            timeout = 60 #5 minutes in seconds
+            while True:
+                if time.time() - self.current_time >= timeout:
+                    print('No messages received in the last '+str(timeout)+' secs')
+                    #sys.exit(0)
+                    os._exit(0)
+                time.sleep(10)
+        self.current_time = time.time()
+        watchdog_thread = threading.Thread(target=watchdog_thread, args=(self,))
+        watchdog_thread.start()
+
         print(' [*] Waiting for messages. To exit press CTRL+C')
         self.channel.basic_consume(queue=queueName, on_message_callback=self.callback, auto_ack=True)
         self.channel.start_consuming()
@@ -107,6 +127,8 @@ order by f.user_id, date_created desc; """
             self.connection.close()
 
     def callback(self, ch, method, properties, body):
+        #reset watchdog
+        self.current_time = time.time()
         json_body = None
         try:
             str_body = body.decode('utf-8')
@@ -119,7 +141,7 @@ order by f.user_id, date_created desc; """
             files = json_body['files']
             voice = 'user_' + str(json_body['user_id'])
 
-            path = os.path.join(r'tortoise\voices', voice)
+            path = os.path.join(os.path.join(r'tortoise','voices'), voice)
             if not os.path.exists(path):
                 os.makedirs(path)
 
@@ -233,8 +255,8 @@ if __name__ == '__main__':
             client.sendMessage(queueName, json_task)
     elif args.message:
         client.sendMessage(queueName, args.message)
-
-
+    else:
+        print('No parameters supplied')
 
 
 

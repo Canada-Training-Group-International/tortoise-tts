@@ -109,8 +109,8 @@ if __name__ == '__main__':
     #parser.add_argument('command', nargs='?', choices=['listen', 'send'], default='send',
     #                    help='Command: "listen" or "send" (default is "send")')
     #parser.add_argument('--listen', default=None, help='')
-    parser.add_argument('-l', '--listen', action='store_true', help='Listen for messages')
-    parser.add_argument('-p', '--process', action='store_true', help='Process pending tasks')
+    #parser.add_argument('-l', '--listen', action='store_true', help='Listen for messages')
+    #parser.add_argument('-p', '--process', action='store_true', help='Process pending tasks')
 
     parser.add_argument('-v', '--voice', help='voice to use')
     parser.add_argument('-o', '--output', help='file to output to')
