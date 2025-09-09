@@ -23,3 +23,5 @@ py-cpuinfo
 hjson
 psutil
 sounddevice
+argparse
+boto3
