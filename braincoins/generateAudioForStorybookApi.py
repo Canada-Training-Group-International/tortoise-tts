@@ -28,6 +28,7 @@ import sys
 import os
 sys.path.append(os.path.dirname(__file__))
 import boto3
+import io
 import uuid
 import torchaudio
 import logging
