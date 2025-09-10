@@ -68,14 +68,16 @@ def generate_audio(text, voice='random'):
 
 # ------------------------------------------------------------------------------
 # Function: Upload audio file to S3
+# Save audio tensor to WAV in memory and upload directly to S3 at the given path.
+# Returns the public URL of the uploaded file.
 # ------------------------------------------------------------------------------
 def upload_audio_to_s3(audio, bucket_name, s3_key):
-    """Save audio tensor to WAV in memory and upload directly to S3"""
+    
     # Setup S3 client with config values
     s3_params = {"region_name": s3Config.S3_REGION}
-    if s3Config.S3_ENDPOINT_URL:
+    if getattr(s3Config, "S3_ENDPOINT_URL", None):
         s3_params["endpoint_url"] = s3Config.S3_ENDPOINT_URL
-    if s3Config.AWS_ACCESS_KEY_ID and s3Config.AWS_SECRET_ACCESS_KEY:
+    if getattr(s3Config, "AWS_ACCESS_KEY_ID", None) and getattr(s3Config, "AWS_SECRET_ACCESS_KEY", None):
         s3_params["aws_access_key_id"] = s3Config.AWS_ACCESS_KEY_ID
         s3_params["aws_secret_access_key"] = s3Config.AWS_SECRET_ACCESS_KEY
 
@@ -84,24 +86,44 @@ def upload_audio_to_s3(audio, bucket_name, s3_key):
     try:
         # Write audio to buffer as WAV
         buffer = io.BytesIO()
-        torchaudio.save(buffer, audio.squeeze(0).cpu(), 24000, format="wav")
+        torchaudio.save(
+            buffer,
+            audio.squeeze(0).cpu(),
+            sample_rate=24000,
+            format="wav"
+        )
         buffer.seek(0)
+
+        # Log buffer size before uploading
+        size = buffer.getbuffer().nbytes
+        logging.info(f"Prepared audio buffer size: {size} bytes")
+
+        if size == 0:
+            raise RuntimeError("Audio buffer is empty — audio generation or save failed.")
 
         # Upload buffer contents to S3
         s3.put_object(
             Bucket=bucket_name,
             Key=s3_key,
             Body=buffer,
-            ACL='public-read',
+            ACL="public-read",
             ContentType="audio/wav"
         )
 
-        # Return S3 URL
-        url = f"https://{bucket_name}.s3.amazonaws.com/{s3_key}"
+        # Construct public URL based on config
+        if getattr(s3Config, "S3_ENDPOINT_URL", None):
+            base_url = s3Config.S3_ENDPOINT_URL.rstrip("/")
+            url = f"{base_url}/{bucket_name}/{s3_key}"
+        else:
+            # fallback to standard AWS S3 URL
+            url = f"https://{bucket_name}.s3.{s3Config.S3_REGION}.amazonaws.com/{s3_key}"
+
         return url
+
     except (BotoCoreError, ClientError) as e:
         logging.error(f"S3 upload failed: {e}")
         raise
+
 
 # ------------------------------------------------------------------------------
 # Helper Function: Parse S3 path into bucket and folder prefix
