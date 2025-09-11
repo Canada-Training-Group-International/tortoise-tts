@@ -80,6 +80,8 @@ def upload_audio_to_s3(audio, bucket_name, s3_key):
         aws_access_key_id=s3Config.AWS_ACCESS_KEY_ID,
         aws_secret_access_key=s3Config.AWS_SECRET_ACCESS_KEY
     )
+    
+    s3_key = f"{prefix.rstrip('/')}"
 
     try:
         # Write audio to buffer as WAV
@@ -149,7 +151,7 @@ def ensure_audio_folder_exists(bucket, prefix):
         aws_secret_access_key=s3Config.AWS_SECRET_ACCESS_KEY
     )
     
-     # Folder we want
+    # Folder we want
     audios_prefix = f"{prefix.rstrip('/')}"
     
     try:
