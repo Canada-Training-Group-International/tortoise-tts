@@ -74,14 +74,12 @@ def generate_audio(text, voice='random'):
 def upload_audio_to_s3(audio, bucket_name, s3_key):
     
     # Setup S3 client with config values
-    s3_params = {"region_name": s3Config.S3_REGION}
-    if getattr(s3Config, "S3_ENDPOINT_URL", None):
-        s3_params["endpoint_url"] = s3Config.S3_ENDPOINT_URL
-    if getattr(s3Config, "AWS_ACCESS_KEY_ID", None) and getattr(s3Config, "AWS_SECRET_ACCESS_KEY", None):
-        s3_params["aws_access_key_id"] = s3Config.AWS_ACCESS_KEY_ID
-        s3_params["aws_secret_access_key"] = s3Config.AWS_SECRET_ACCESS_KEY
-
-    s3 = boto3.client("s3", **s3_params)
+    s3 = boto3.client(
+        "s3",
+        region_name=s3Config.S3_REGION,
+        aws_access_key_id=s3Config.AWS_ACCESS_KEY_ID,
+        aws_secret_access_key=s3Config.AWS_SECRET_ACCESS_KEY
+    )
 
     try:
         # Write audio to buffer as WAV
