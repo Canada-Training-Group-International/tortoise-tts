@@ -72,7 +72,6 @@ def generate_audio(text, voice='random'):
 # Returns the public URL of the uploaded file.
 # ------------------------------------------------------------------------------
 def upload_audio_to_s3(audio, bucket_name, s3_key):
-    import re
     
     # Setup S3 client with config values
     s3 = boto3.client(
@@ -83,9 +82,8 @@ def upload_audio_to_s3(audio, bucket_name, s3_key):
     )
 
     try:
-        # Normalize the key: strip any accidental bucket prefix
-        pattern = rf"^(?:{re.escape(bucket_name)}/)+"
-        s3_key = re.sub(pattern, "", s3_key.lstrip("/"))
+        # Folder we want
+        s3_key = f"{prefix.rstrip('/')}"
 
         # Write audio to buffer as WAV
         buffer = io.BytesIO()
@@ -153,7 +151,7 @@ def ensure_audio_folder_exists(bucket, prefix):
         aws_secret_access_key=s3Config.AWS_SECRET_ACCESS_KEY
     )
     
-     # Folder we want
+    # Folder we want
     audios_prefix = f"{prefix.rstrip('/')}"
     
     try:
