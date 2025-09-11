@@ -72,8 +72,7 @@ def generate_audio(text, voice='random'):
 # Returns the public URL of the uploaded file.
 # ------------------------------------------------------------------------------
 def upload_audio_to_s3(audio, bucket_name, s3_key):
-    
-    # Setup S3 client with config values
+    # Setup S3 client
     s3 = boto3.client(
         "s3",
         region_name=s3Config.S3_REGION,
@@ -82,8 +81,6 @@ def upload_audio_to_s3(audio, bucket_name, s3_key):
     )
 
     try:
-        # Folder we want
-        s3_key = f"{prefix.rstrip('/')}"
 
         # Write audio to buffer as WAV
         buffer = io.BytesIO()
@@ -95,13 +92,6 @@ def upload_audio_to_s3(audio, bucket_name, s3_key):
         )
         buffer.seek(0)
 
-        # Log buffer size before uploading
-        size = buffer.getbuffer().nbytes
-        logging.info(f"Prepared audio buffer size: {size} bytes")
-
-        if size == 0:
-            raise RuntimeError("Audio buffer is empty — audio generation or save failed.")
-
         # Upload buffer contents to S3
         s3.put_object(
             Bucket=bucket_name,
@@ -109,7 +99,6 @@ def upload_audio_to_s3(audio, bucket_name, s3_key):
             Body=buffer,
             ACL="public-read",
             ContentType="audio/wav",
-            MaxKeys=1
         )
 
         # Construct public URL
@@ -120,10 +109,6 @@ def upload_audio_to_s3(audio, bucket_name, s3_key):
             url = f"https://{bucket_name}.s3.{s3Config.S3_REGION}.amazonaws.com/{s3_key}"
 
         return url
-
-    except (BotoCoreError, ClientError) as e:
-        logging.error(f"S3 upload failed: {e}")
-        raise
 
 
 # ------------------------------------------------------------------------------
