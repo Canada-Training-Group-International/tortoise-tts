@@ -72,6 +72,7 @@ def generate_audio(text, voice='random'):
 # Returns the public URL of the uploaded file.
 # ------------------------------------------------------------------------------
 def upload_audio_to_s3(audio, bucket_name, s3_key):
+    import re
     
     # Setup S3 client with config values
     s3 = boto3.client(
@@ -80,10 +81,12 @@ def upload_audio_to_s3(audio, bucket_name, s3_key):
         aws_access_key_id=s3Config.AWS_ACCESS_KEY_ID,
         aws_secret_access_key=s3Config.AWS_SECRET_ACCESS_KEY
     )
-    
-    s3_key = f"{prefix.rstrip('/')}"
 
     try:
+        # Normalize the key: strip any accidental bucket prefix
+        pattern = rf"^(?:{re.escape(bucket_name)}/)+"
+        s3_key = re.sub(pattern, "", s3_key.lstrip("/"))
+
         # Write audio to buffer as WAV
         buffer = io.BytesIO()
         torchaudio.save(
@@ -110,12 +113,11 @@ def upload_audio_to_s3(audio, bucket_name, s3_key):
             ContentType="audio/wav"
         )
 
-        # Construct public URL based on config
+        # Construct public URL
         if getattr(s3Config, "S3_ENDPOINT_URL", None):
             base_url = s3Config.S3_ENDPOINT_URL.rstrip("/")
             url = f"{base_url}/{s3_key}"
         else:
-            # fallback to standard AWS S3 URL
             url = f"https://{bucket_name}.s3.{s3Config.S3_REGION}.amazonaws.com/{s3_key}"
 
         return url
@@ -151,7 +153,7 @@ def ensure_audio_folder_exists(bucket, prefix):
         aws_secret_access_key=s3Config.AWS_SECRET_ACCESS_KEY
     )
     
-    # Folder we want
+     # Folder we want
     audios_prefix = f"{prefix.rstrip('/')}"
     
     try:
