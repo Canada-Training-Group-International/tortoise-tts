@@ -108,7 +108,8 @@ def upload_audio_to_s3(audio, bucket_name, s3_key):
             Key=s3_key,
             Body=buffer,
             ACL="public-read",
-            ContentType="audio/wav"
+            ContentType="audio/wav",
+            MaxKeys=1
         )
 
         # Construct public URL
