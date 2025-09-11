@@ -113,7 +113,7 @@ def upload_audio_to_s3(audio, bucket_name, s3_key):
         # Construct public URL based on config
         if getattr(s3Config, "S3_ENDPOINT_URL", None):
             base_url = s3Config.S3_ENDPOINT_URL.rstrip("/")
-            url = f"{base_url}/{bucket_name}/{s3_key}"
+            url = f"{base_url}/{s3_key}"
         else:
             # fallback to standard AWS S3 URL
             url = f"https://{bucket_name}.s3.{s3Config.S3_REGION}.amazonaws.com/{s3_key}"
