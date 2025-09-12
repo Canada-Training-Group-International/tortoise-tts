@@ -29,12 +29,11 @@ import os
 sys.path.append(os.path.dirname(__file__))
 import boto3
 import io
-import uuid
 import torchaudio
 import logging
 from tortoise.api import TextToSpeech
 from tortoise.utils.audio import load_voice
-from botocore.exceptions import BotoCoreError, ClientError
+from botocore.exceptions import ClientError
 import s3Config  # your S3 config module
 import traceback
 
@@ -60,7 +59,12 @@ def generate_audio(text, voice='random'):
     try:
         tts = TextToSpeech()
         voice_samples, conditioning_latents = load_voice(voice)
-        audio = tts.tts_with_preset(text, voice_samples=voice_samples, conditioning_latents=conditioning_latents, preset='fast')
+        audio = tts.tts_with_preset(
+            text,
+            voice_samples=voice_samples,
+            conditioning_latents=conditioning_latents,
+            preset='fast'
+        )
         return audio
     except Exception as e:
         logging.error(f"Audio generation failed: {e}")
@@ -72,7 +76,9 @@ def generate_audio(text, voice='random'):
 # Returns the public URL of the uploaded file.
 # ------------------------------------------------------------------------------
 def upload_audio_to_s3(audio, bucket_name, s3_key):
-    # Setup S3 client
+    # Ensure no leading slash in key
+    s3_key = s3_key.lstrip("/")
+
     s3 = boto3.client(
         "s3",
         region_name=s3Config.S3_REGION,
@@ -81,7 +87,6 @@ def upload_audio_to_s3(audio, bucket_name, s3_key):
     )
 
     try:
-        # Write audio tensor to in-memory buffer as WAV
         buffer = io.BytesIO()
         torchaudio.save(
             buffer,
@@ -91,7 +96,8 @@ def upload_audio_to_s3(audio, bucket_name, s3_key):
         )
         buffer.seek(0)
 
-        # Upload buffer contents to S3
+        logging.info(f"Uploading to S3 -> Bucket: {bucket_name}, Key: {s3_key}")
+
         s3.put_object(
             Bucket=bucket_name,
             Key=s3_key,
@@ -100,7 +106,6 @@ def upload_audio_to_s3(audio, bucket_name, s3_key):
             ContentType="audio/wav",
         )
 
-        # Construct public URL
         if getattr(s3Config, "S3_ENDPOINT_URL", None):
             base_url = s3Config.S3_ENDPOINT_URL.rstrip("/")
             url = f"{base_url}/{s3_key}"
@@ -122,7 +127,7 @@ def parse_s3_path(s3_path):
     parts = s3_path[5:].split('/', 1)
     bucket = parts[0]
     prefix = parts[1] if len(parts) > 1 else ''
-    return bucket, prefix.rstrip('/')
+    return bucket, prefix.strip('/')  # remove leading/trailing slashes
 
 # ------------------------------------------------------------------------------
 # Helper Function: Ensure "audios" folder exists in S3
@@ -209,8 +214,8 @@ def generate_audio_api(request: AudioRequest):
             raise ValueError("Invalid type. Must be 'chapter' or 'page'.")
 
         # Construct S3 key
-        s3_key = f"{audio_dir}/{audio_filename}"
-
+        s3_key = f"{audio_dir}/{audio_filename}".lstrip("/")
+        
         logging.info(f"Generating audio for {request.type} {request.number} using voice: {request.voice}")
         audio = generate_audio(request.text, request.voice)
 
