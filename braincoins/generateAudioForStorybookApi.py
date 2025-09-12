@@ -81,8 +81,7 @@ def upload_audio_to_s3(audio, bucket_name, s3_key):
     )
 
     try:
-
-        # Write audio to buffer as WAV
+        # Write audio tensor to in-memory buffer as WAV
         buffer = io.BytesIO()
         torchaudio.save(
             buffer,
@@ -110,6 +109,9 @@ def upload_audio_to_s3(audio, bucket_name, s3_key):
 
         return url
 
+    except Exception as e:
+        logging.error(f"Upload failed: {e}")
+        raise
 
 # ------------------------------------------------------------------------------
 # Helper Function: Parse S3 path into bucket and folder prefix
