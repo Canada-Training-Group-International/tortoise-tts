@@ -37,8 +37,20 @@ from botocore.exceptions import ClientError
 import s3Config  # your S3 config module
 import traceback
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
+# ------------------------------------------------------------------------------
+# Centralized logger configuration (works with systemd/journald)
+# ------------------------------------------------------------------------------
+logger = logging.getLogger("tortoise-api")
+logger.setLevel(logging.INFO)  # set global level
+
+# Ensure logs go to stdout (systemd captures stdout/stderr)
+handler = logging.StreamHandler(sys.stdout)
+formatter = logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s")
+handler.setFormatter(formatter)
+
+# Avoid duplicate handlers if reloaded
+if not logger.handlers:
+    logger.addHandler(handler)
 
 app = FastAPI()
 
@@ -67,7 +79,7 @@ def generate_audio(text, voice='random'):
         )
         return audio
     except Exception as e:
-        logging.error(f"Audio generation failed: {e}")
+        logger.error(f"Audio generation failed: {e}")
         raise
 
 # ------------------------------------------------------------------------------
@@ -76,9 +88,10 @@ def generate_audio(text, voice='random'):
 # Returns the public URL of the uploaded file.
 # ------------------------------------------------------------------------------
 def upload_audio_to_s3(audio, bucket_name, s3_key):
+    print(f"Bucket Name: {bucket_name}, Key: {s3_key}")
     # Ensure no leading slash in key
     s3_key = s3_key.lstrip("/")
-
+    
     s3 = boto3.client(
         "s3",
         region_name=s3Config.S3_REGION,
@@ -96,7 +109,7 @@ def upload_audio_to_s3(audio, bucket_name, s3_key):
         )
         buffer.seek(0)
 
-        logging.info(f"Uploading to S3 -> Bucket: {bucket_name}, Key: {s3_key}")
+        logger.info(f"Uploading to S3 -> Bucket: {bucket_name}, Key: {s3_key}")
 
         s3.put_object(
             Bucket=bucket_name,
@@ -111,11 +124,12 @@ def upload_audio_to_s3(audio, bucket_name, s3_key):
             url = f"{base_url}/{s3_key}"
         else:
             url = f"https://{bucket_name}.s3.{s3Config.S3_REGION}.amazonaws.com/{s3_key}"
-
+        
+        logger.info(f"Upload successful: {url}")
         return url
 
     except Exception as e:
-        logging.error(f"Upload failed: {e}")
+        logger.error(f"Upload failed: {e}")
         raise
 
 # ------------------------------------------------------------------------------
@@ -174,8 +188,8 @@ def ensure_audio_folder_exists(bucket, prefix):
             print(f"Folder already exists: {audios_prefix}")
 
     except Exception:
-        logging.error("Exception while checking/creating folder:")
-        logging.error(traceback.format_exc())
+        logger.error("Exception while checking/creating folder:")
+        logger.error(traceback.format_exc())
         raise
 
 # ------------------------------------------------------------------------------
@@ -216,14 +230,14 @@ def generate_audio_api(request: AudioRequest):
         # Construct S3 key
         s3_key = f"{audio_dir}/{audio_filename}".lstrip("/")
         
-        logging.info(f"Generating audio for {request.type} {request.number} using voice: {request.voice}")
+        logger.info(f"Generating audio for {request.type} {request.number} using voice: {request.voice}")
         audio = generate_audio(request.text, request.voice)
 
-        logging.info(f"Uploading to S3: {s3_key}")
+        logger.info(f"Uploading to S3: {s3_key}")
         s3_url = upload_audio_to_s3(audio, bucket, s3_key)
 
         return {"status": "success", "s3_url": s3_url}
         
     except Exception as e:
-        logging.error(f"Process failed: {e}")
+        logger.error(f"Process failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
